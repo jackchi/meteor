@@ -328,9 +328,15 @@ MongoConnection.prototype._startOplogTailing = function (oplogUrl, dbName) {
     var lastOplogEntry = oplogConnection.findOne(
       OPLOG_COLLECTION, {}, {sort: {$natural: -1}});
 
-    var oplogSelector = _.extend(
-      lastOplogEntry ? {ts: {$gt: lastOplogEntry.ts}} : {},
-      baseOplogSelector);
+    var oplogSelector = _.clone(baseOplogSelector);
+    if (lastOplogEntry) {
+      // Start after the last entry that currently exists.
+      oplogSelector.ts = {$gt: lastOplogEntry.ts};
+      // If there are any calls to callWhenProcessedLatest before any other
+      // oplog entries show up, allow callWhenProcessedLatest to call its
+      // callback immediately.
+      lastProcessedTS = lastOplogEntry.ts;
+    }
 
     var cursorDescription = new CursorDescription(
       OPLOG_COLLECTION, oplogSelector, {tailable: true});
